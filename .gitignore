@@ -1,0 +1,17 @@
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfstate*
+terraform/terraform.tfvars
+terraform/crash.log
+terraform/override.tf
+terraform/override.tf.json
+
+# Ansible
+ansible/inventory/hosts.ini
+*.retry
+
+# Geral
+.DS_Store
+roteiro-workshop.md

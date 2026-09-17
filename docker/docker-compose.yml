@@ -1,0 +1,37 @@
+# docker-compose.yml de referência — WordPress + MySQL
+#
+# Usado no deploy (o Ansible gera uma versão idêntica a partir do template
+# ansible/roles/wordpress/templates/docker-compose.yml.j2, injetando as
+# variáveis de senha/bucket).
+#
+# Para rodar manualmente na VM:
+#   sudo docker compose up -d
+
+services:
+  wordpress:
+    image: wordpress:latest
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wordpress:/var/www/html
+
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - db:/var/lib/mysql
+
+volumes:
+  wordpress:
+  db:

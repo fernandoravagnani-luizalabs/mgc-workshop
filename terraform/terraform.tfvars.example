@@ -1,0 +1,24 @@
+# ---------------------------------------------------------------------------
+# Exemplo de terraform.tfvars — copie para terraform.tfvars e preencha.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#   terraform init && terraform apply
+# ---------------------------------------------------------------------------
+
+mgc_api_key            = "SUA_API_KEY_MGC"
+region                 = "br-se1"
+availability_zone      = "br-se1-a"
+
+vm_name                = "site-web-01"
+machine_type           = "BV1-1-10"
+image                  = "cloud-ubuntu-24.04 LTS"
+
+ssh_key_name           = "site-key"
+ssh_public_key         = "ssh-ed25519 AAAAC3... (sua chave pública)"
+ssh_private_key_path   = "~/.ssh/id_ed25519"
+
+bucket_name            = "site-media-seu-nome"
+
+object_storage_access_key  = "SUA_ACCESS_KEY"
+object_storage_secret_key  = "SUA_SECRET_KEY"
+object_storage_endpoint    = "https://br-se1.magaluobjects.com"

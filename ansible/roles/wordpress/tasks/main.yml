@@ -1,0 +1,74 @@
+---
+# Install Docker Engine + Compose plugin a partir do repositório oficial.
+- name: Instalar dependências base
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+    update_cache: true
+
+- name: Criar diretório de keyrings do Docker
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Baixar a chave GPG do Docker
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+    force: true
+
+# dpkg --print-architecture retorna "amd64"/"arm64" (formato exigido pelo repo
+# do Debian/Ubuntu), ao contrário de ansible_architecture que traz "x86_64".
+- name: Obter arquitetura do sistema (dpkg)
+  ansible.builtin.command: dpkg --print-architecture
+  register: dpkg_arch
+  changed_when: false
+
+- name: Adicionar repositório oficial do Docker
+  ansible.builtin.template:
+    src: docker.list.j2
+    dest: /etc/apt/sources.list.d/docker.list
+    mode: "0644"
+
+- name: Instalar Docker Engine e Compose plugin
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Garantir que o serviço Docker esteja ativo
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
+# ---------------------------------------------------------------------------
+# Deploy do WordPress + MySQL via Docker Compose
+# ---------------------------------------------------------------------------
+- name: Criar diretório do WordPress
+  ansible.builtin.file:
+    path: "{{ wordpress_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Copiar o docker-compose.yml (com as credenciais do banco)
+  ansible.builtin.template:
+    src: docker-compose.yml.j2
+    dest: "{{ wordpress_dir }}/docker-compose.yml"
+    mode: "0644"
+
+- name: Subir os containers (wordpress + mysql)
+  ansible.builtin.command:
+    cmd: docker compose up -d
+    chdir: "{{ wordpress_dir }}"
+  register: compose_up
+  changed_when: "'Started' in compose_up.stdout or 'Created' in compose_up.stdout or compose_up.rc == 0"

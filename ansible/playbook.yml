@@ -1,0 +1,18 @@
+---
+# Playbook do workshop: provisiona a VM e faz o deploy do WordPress + MySQL
+# via Docker Compose, já deixando as credenciais do Object Storage prontas para
+# o plugin WP Offload Media.
+- name: Deploy WordPress + MySQL (Docker) na VM Magalu Cloud
+  hosts: wordpress
+  become: true
+  vars:
+    wordpress_dir: /opt/wordpress
+    bucket_name: "{{ bucket_name | default('site-media') }}"
+    object_storage_endpoint: "{{ object_storage_endpoint | default('https://br-se1.magaluobjects.com') }}"
+    object_storage_region: "{{ object_storage_region | default('br-se1') }}"
+    # Senhas do banco (uso pedagógico — no workshop são fixas)
+    mysql_database: wordpress
+    mysql_user: wordpress
+    mysql_password: wordpress
+  roles:
+    - wordpress
