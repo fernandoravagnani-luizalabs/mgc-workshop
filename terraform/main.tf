@@ -17,6 +17,10 @@ terraform {
       source  = "MagaluCloud/mgc"
       version = "~> 0.1"
     }
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
     null = {
       source  = "hashicorp/null"
       version = "~> 3.2"
@@ -29,6 +33,22 @@ provider "mgc" {
   region          = var.region
   key_pair_id     = var.object_storage_access_key
   key_pair_secret = var.object_storage_secret_key
+}
+
+# Provider S3 para gerenciar recursos compatíveis com S3 (como ACLs) na Magalu Cloud
+provider "aws" {
+  region                      = var.region
+  access_key                  = var.object_storage_access_key
+  secret_key                  = var.object_storage_secret_key
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
+  skip_metadata_api_check     = true
+  skip_region_validation      = true
+  s3_use_path_style           = true
+
+  endpoints {
+    s3 = var.object_storage_endpoint
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -59,20 +79,13 @@ resource "mgc_object_storage_buckets" "media" {
   versioning = false
 }
 
-# Deixa o bucket público para leitura (serve as mídias do site)
-resource "null_resource" "bucket_public_policy" {
+# ACL do Bucket configurada como public-read (leitura pública)
+resource "aws_s3_bucket_acl" "media_acl" {
+  bucket     = mgc_object_storage_buckets.media.bucket
+  acl        = "public-read"
   depends_on = [mgc_object_storage_buckets.media]
+}
 
-  provisioner "local-exec" {
-    command = <<-EOT
-      mgc object-storage buckets policy set \
-        --dst ${mgc_object_storage_buckets.media.bucket} \
-        --policy '${templatefile("${path.module}/templates/bucket-policy.json", {
-    bucket_name = mgc_object_storage_buckets.media.bucket
-})}'
-    EOT
-}
-}
 
 # ---------------------------------------------------------------------------
 # Provisionamento / configuração / deploy via Ansible

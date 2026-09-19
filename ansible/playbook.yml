@@ -5,6 +5,7 @@
 - name: Deploy WordPress + MySQL (Docker) na VM Magalu Cloud
   hosts: wordpress
   become: true
+  gather_facts: false
   vars:
     wordpress_dir: /opt/wordpress
     bucket_name: "{{ bucket_name | default('site-media') }}"
@@ -14,5 +15,19 @@
     mysql_database: wordpress
     mysql_user: wordpress
     mysql_password: wordpress
+
+  pre_tasks:
+    - name: Aguardar o SSH da VM ficar disponível
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 300
+
+    - name: Coletar informações do sistema (facts)
+      ansible.builtin.setup:
+
+    - name: Aguardar a finalização do cloud-init (boot e atualizações automáticas)
+      ansible.builtin.raw: which cloud-init >/dev/null 2>&1 && cloud-init status --wait || true
+      changed_when: false
+
   roles:
     - wordpress

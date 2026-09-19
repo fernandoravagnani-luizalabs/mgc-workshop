@@ -1,198 +1,266 @@
 # Workshop Magalu Cloud na Prática
 
-Workshop hands-on de **1h30** onde cada participante sobe um ambiente simples na
-Magalu Cloud (MGC) — simulando o caso de um cliente que roda um website da sua
-empresa na nuvem — e depois desmonta tudo para não gerar custo.
+Workshop hands-on de **1h30** onde cada participante cria sua própria conta no ID Magalu, sobe uma infraestrutura completa na **Magalu Cloud (MGC)** — simulando o caso de um cliente que hospeda um website corporativo na nuvem — e depois desmonta todos os recursos para não gerar custos remanescentes.
 
-Ao final do passo a passo, cada pessoa terá:
+---
 
-- **1 Máquina Virtual (VM)** rodando **WordPress + MySQL** em containers Docker
-- **1 Bucket no Object Storage** (S3-compatible) com os **assets/media** do site
-  (imagens, vídeos, documentos e arquivos de `wp-content/uploads`)
-- **1 IP público** para acessar o site no navegador
+## 🎯 Arquitetura da Solução
 
-> O site é um **WordPress** — o CMS mais usado no mundo — rodando via **Docker**
-> na VM (container `wordpress` oficial + container `mysql:8.0` como banco). As
-> mídias enviadas pela biblioteca do WordPress são copiadas para o **Object
-> Storage** com o plugin **Media Cloud Sync**, e servidas direto do bucket.
+Ao final do workshop, cada participante terá construído o seguinte ambiente:
+
+- **1 Máquina Virtual (VM):** rodando **WordPress + MySQL** em containers Docker.
+- **1 Bucket no Object Storage (S3-compatible):** armazenando e servindo as **mídias** do site (imagens, vídeos e uploads) com acesso público de leitura.
+- **1 IP Público:** para acesso direto ao site via navegador.
 
 ```
-Browser do participante
-        │  http://<IP público>
+Navegador do Participante / Visitantes
+        │  http://<IP_PUBLICO>
         ▼
-   ┌───────────────────────────────┐   media/assets     ┌────────────────────┐
-   │  VM — Docker                  │ ─────────────────▶ │  Object Storage    │
-   │  ┌──────────────┐  ┌────────┐ │                    │  (bucket público)  │
-   │  │ wordpress    │  │ mysql  │ │                    └────────────────────┘
-   │  │ (Apache+PHP) │  │ :8.0   │ │
-   │  └──────────────┘  └────────┘ │
-   └───────────────────────────────┘
+   ┌────────────────────────────────┐   mídias/uploads   ┌──────────────────────┐
+   │  VM (Ubuntu 24.04) — Docker    │ ─────────────────▶ │  Object Storage      │
+   │  ┌──────────────┐  ┌─────────┐ │                    │  (bucket público)    │
+   │  │ WordPress    │  │ MySQL   │ │                    └──────────────────────┘
+   │  │ (Apache+PHP) │  │ 8.0     │ │
+   │  └──────────────┘  └─────────┘ │
+   └────────────────────────────────┘
    WordPress = código + tema + plugins (na VM)
-   Banco de dados MySQL (na VM)
-   Media/imagens (no Object Storage)
+   Banco de dados MySQL = persistido na VM
+   Mídias da biblioteca = servidas direto do Object Storage (S3)
 ```
 
 ---
 
-## Estrutura do repositório
-
-O material do workshop está organizado por tipo de arquivo:
+## 📁 Estrutura do Repositório
 
 ```
 mgc-workshop/
-├── README.md                 # Este guia passo a passo
-├── roteiro-workshop.md       # Roteiro/falas do facilitador
-├── scripts/                  # Scripts auxiliares (mgc CLI, pré-requisitos)
-├── terraform/                # IaC: cria a infra e chama o Ansible (deploy)
-│   ├── main.tf               # VM, Security Group, bucket, provisioner Ansible
-│   ├── variables.tf
-│   ├── outputs.tf
-│   ├── templates/            # Policy do bucket (S3)
+├── README.md                 # Este guia completo passo a passo
+├── roteiro-workshop.md       # Roteiro didático do facilitador com falas e tempos
+├── scripts/                  # Scripts utilitários de instalação de pré-requisitos
+│   ├── install-prereqs.sh    # Instalação automatizada no Linux/macOS
+│   └── install-prereqs.ps1   # Instalação automatizada no Windows (PowerShell)
+├── terraform/                # Infraestrutura como Código (IaC) via Terraform
+│   ├── main.tf               # Definição de VM, Chave SSH, Bucket, ACL e Ansible
+│   ├── variables.tf          # Definição das variáveis
+│   ├── outputs.tf            # IPs e URLs de saída
 │   └── terraform.tfvars.example
-├── ansible/                  # Provisionamento/configuração/deploy do WordPress
-│   ├── playbook.yml
-│   ├── ansible.cfg
-│   ├── inventory/            # hosts.ini (IP gerado pelo Terraform)
-│   └── roles/wordpress/      # instala Docker + sobe WordPress/MySQL
-└── docker/                   # (reservado) docker-compose.yml de referência
+├── ansible/                  # Automação de deploy e configuração da VM
+│   ├── playbook.yml          # Playbook de instalação do Docker e WordPress
+│   ├── ansible.cfg           # Configurações do Ansible
+│   ├── inventory/hosts.ini   # Inventário gerado automaticamente
+│   └── roles/wordpress/      # Role com tarefas e templates do Docker Compose
+└── docker/                   # Compose de referência pedagógica
 ```
 
-> 💡 **Duas formas de criar o ambiente:** o caminho **manual** (console/CLI,
-> seções 3 e 4) e o caminho **IaC** (Terraform + Ansible, seção 3.3). Ambos
-> produzem a mesma entrega — a diferença é que o IaC automatiza o deploy.
+---
+
+## 📑 Índice
+
+1. [Criação e Acesso à Conta (ID Magalu)](#1-criação-e-acesso-à-conta-id-magalu)
+2. [Pré-requisitos e Ferramental](#2-pré-requisitos-e-ferramental)
+3. [Provisionamento da Infraestrutura](#3-provisionamento-da-infraestrutura)
+   - [3.1 Procedimento 1: Via Console Web](#31-procedimento-1-via-console-web)
+   - [3.2 Procedimento 2: Via MGC CLI](#32-procedimento-2-via-mgc-cli)
+   - [3.3 Procedimento 3: Via Terraform + Ansible (Automatizado)](#33-procedimento-3-via-terraform--ansible-automatizado)
+4. [Configuração do WordPress e Mídias no Object Storage](#4-configuração-do-wordpress-e-mídias-no-object-storage)
+5. [Validação do Ambiente](#5-validação-do-ambiente)
+6. [Desmontagem e Exclusão dos Recursos](#6-desmontagem-e-exclusão-dos-recursos)
+7. [Documentação e Referências Oficiais](#7-documentação-e-referências-oficiais)
 
 ---
 
-## Índice
+## 1. Criação e Acesso à Conta (ID Magalu)
 
-- [1. Pré-requisitos](#1-pré-requisitos)
-- [2. Acesso à conta](#2-acesso-à-conta)
-- [3. Provisionar a infraestrutura](#3-provisionar-a-infraestrutura)
-  - [3.1 Pelo console](#31-pelo-console)
-  - [3.2 Pela CLI](#32-pela-cli)
-  - [3.3 Pelo IaC (Terraform + Ansible)](#33-pelo-iac-terraform--ansible)
-- [4. Deploy do site](#4-deploy-do-site)
-- [5. Verificação](#5-verificação)
-- [6. Desmontagem do ambiente](#6-desmontagem-do-ambiente)
-- [Referências](#referências)
+> 📖 **Documentação de apoio:** [Como criar sua conta na Magalu Cloud](https://docs.magalu.cloud/docs/onboarding/create-account)
 
----
+Todos os participantes devem utilizar sua própria conta no ID Magalu. O cadastro é gratuito e no modelo *pay-as-you-go* (paga apenas pelo que usar).
 
-## 1. Pré-requisitos
+### Passo a passo para criar sua conta:
 
-Antes do workshop, cada participante precisa de:
-
-- Um navegador (Chrome/Firefox/Edge).
-- Acesso ao console da Magalu Cloud (conta própria no ID Magalu **ou**
-  conta de demonstração do workshop — ver [seção 2](#2-acesso-à-conta)).
-- **Apenas para o caminho via CLI:** terminal com `mgc` CLI e `git` instalados.
-- **Apenas para o caminho via IaC (Terraform + Ansible):** terminal com
-  `terraform`, `ansible` instalados. O script
-  `scripts/install-prereqs.sh`  (ou versão `.ps1` no Windows) 
-  instalam essas ferramentas.
+1. Acesse o portal da Magalu Cloud: [https://magalu.cloud](https://magalu.cloud) e clique em **Criar conta** (ou acesse diretamente [https://console.magalu.cloud](https://console.magalu.cloud)).
+2. Preencha os dados solicitados: Nome completo, CPF/CNPJ, e-mail de acesso e crie uma senha segura.
+3. Acesse sua caixa de entrada e confirme seu endereço de e-mail clicando no link de ativação enviado.
+4. Faça login no **Console Web**: [https://console.magalu.cloud](https://console.magalu.cloud).
+5. No primeiro acesso, aceite os Termos de Serviço da plataforma.
+6. Confirme a criação do seu **Tenant** (organização/espaço de trabalho padrão).
 
 ---
 
-## 2. Acesso à conta
+## 2. Pré-requisitos e Ferramental
 
-Existem dois caminhos. O **recomendado** é usar a própria conta;
-ou pode ser usada a conta de demonstração.
+Dependendo do procedimento de provisionamento escolhido (Console, CLI ou Terraform), prepare seu ambiente local:
 
-### Caminho A — Criar a própria conta no ID Magalu (recomendado)
-
-1. Acesse **https://magalu.cloud** e clique em **Criar conta**.
-2. Preencha nome, e-mail e senha; confirme o e-mail pelo link enviado.
-3. Faça login no console: **https://console.magalu.cloud**.
-4. Aceite os termos e confirme que o **tenant** (organização) foi criado.
-
-### Caminho B — Conta de demonstração
-
-1. Acesse o **canal do WhatsApp do workshop**.
-2. Envie o **e-mail do seu ID Magalu** no canal.
-3. Aguarde o aviso de que o acesso na conta de demonstração foi liberado.
-4. Acesse o console: **https://console.magalu.cloud** e faça login.
-
-> O facilitador libera os acessos na conta de demonstração conforme os e-mails
-> chegam. Só siga para a próxima seção depois do aviso de liberação.
-
-
-
----
-
-## 3. Provisionar a infraestrutura
-
-Vamos criar os dois recursos: a **VM** e o **bucket**. Você pode fazer tudo pelo
-**console** (mais visual), pela **CLI** (mais rápido e reproduzível) ou pelo
-**IaC** com Terraform + Ansible (tudo automatizado, seção 3.3).
-
-> **Parâmetros usados neste guia** (ajuste se quiser):
-> - Região: `br-se1`
-> - VM: nome `site-web-01`, flavor `BV1-1-10` (1 vCPU / 1 GB RAM / 10GB Disk), 
->       imagem `cloud-ubuntu-24.04 LTS`
-> - Bucket: nome `site-media-<seu-nome>` (o nome de bucket é **único global**)
-> - Security Group: `site-sg`, liberando HTTP (80) e HTTPS (443) para todos e
->   SSH (22) para o seu IP
-
-### 3.1 Pelo console
-
-#### 3.1.1 Criar a Máquina Virtual
-
-1. No console, acesse o menu **Máquinas Virtuais** → **Criar máquina**.
-2. Preencha:
-   - **Nome:** `site-web-01`
-   - **Imagem/SO:** `cloud-ubuntu-24.04 LTS`
-   - **Flavor/Configuração:** `BV1-1-10` (a menor disponível já basta)
-   - **VPC:** a default - padrão da conta (não criar rede própria)
-   - **IP público:** ativado (é o que permite acessar o site depois)
-   - **Chave SSH:** escolha a chave do workshop (ou crie uma)
-3. Clique em **Criar** e aguarde a máquina ficar **Ativa**.
-4. **Anote o IP público** exibido — será usado no deploy.
-
-#### 3.1.2 Criar o bucket (Object Storage)
-
-1. No console, acesse **Object Storage** → **Criar bucket**.
-2. Preencha:
-   - **Nome:** `site-media-<seu-nome>`
-   - **Região:** `br-se1` (mesma da VM)
-   - **Visibilidade:** **público para leitura** (vai servir as mídias do site)
-3. Clique em **Criar bucket**.
-4. **Anote o nome do bucket** — vamos usá-lo na configuração do WordPress (o
-   plugin grava as mídias lá).
-
-### 3.2 Pela CLI
-
-> Pré-requisito: `mgc` CLI autenticado. Substitua
-> `<SEU_NOME>` por um identificador único (ex.: seu nome de usuário).
-
-#### 3.2.1 Login e autenticação
+### 2.1 Gerar Par de Chaves SSH Local (Necessário para todos os métodos)
+Para acessar a Máquina Virtual de forma segura via terminal, gere uma chave SSH local caso ainda não possua:
 
 ```bash
-# autenticar o CLI
-mgc auth login          # abre o navegador para autenticar via ID Magalu
-mgc auth tenant current # confirma o tenant logado
-
-# configurar as chaves do object storage no CLI
-https://docs.magalu.cloud/docs/storage/object-storage/compatible-tools/mgc-cli-compatibility#como-configurar-a-mgc-cli-com-api-keys
-mgc object-storage api-key create --name="api-key-name" # criar uma api-key para possibilitar o acesso ao object storage
-mgc object-storage api-key get UUID                     # verifica a api-key criada
-mgc object-storage api-key set UUID                     # configura o CLI para utilizar a api-key no acesso ao object storage
-mgc object-storage api-key current                      # verifica a api-key configurada no CLI
-```
-
-> Se você usa a **conta de demonstração**, verifique se a sua API key foi
-> liberada antes de autenticar.
-
-#### 3.2.2 Criar a VM
-
-```bash
-# registra a chave SSH (se ainda não tiver)
+# Gera um par de chaves ED25519 (recomendado) ou RSA
 ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "workshop-mgc"
-mgc profile ssh-keys create --name site-key \
-  --key "$(cat ~/.ssh/id_ed25519.pub)" --output json --raw
+
+# Garanta as permissões restritas corretas no arquivo privado
+chmod 600 ~/.ssh/id_ed25519
 ```
 
+### 2.2 Script Automático de Instalação de Ferramentas (CLI / Terraform)
+O repositório inclui scripts que instalam automaticamente `mgc` CLI, `terraform`, `ansible` e `git`:
+
+- **Linux / macOS:**
+  ```bash
+  chmod +x scripts/install-prereqs.sh
+  ./scripts/install-prereqs.sh
+  ```
+- **Windows (PowerShell como Administrador):**
+  ```powershell
+  Set-ExecutionPolicy Bypass -Scope Process -Force
+  .\scripts\install-prereqs.ps1
+  ```
+
+---
+
+## 3. Provisionamento da Infraestrutura
+
+Escolha **um dos 3 procedimentos abaixo** para criar sua infraestrutura:
+
+---
+
+### 3.1 Procedimento 1: Via Console Web
+
+> 📖 **Documentações de apoio:**
+> - [Gerenciamento de Chaves SSH](https://docs.magalu.cloud/docs/virtual-machine/quickstart)
+> - [Criar Instância de Máquina Virtual](https://docs.magalu.cloud/docs/virtual-machine/quickstart)
+> - [Criar e Gerenciar Buckets no Object Storage](https://docs.magalu.cloud/docs/storage/object-storage/quickstart)
+> - [Gerenciar Chaves de Acesso e API Keys](https://docs.magalu.cloud/docs/storage/object-storage/compatible-tools/mgc-cli-compatibility)
+
+#### Passo 1 — Cadastrar sua Chave Pública SSH no Console
+1. No Console da Magalu Cloud, acesse o menu **Segurança** (ou **Configurações de Perfil**) → **Chaves SSH**.
+2. Clique em **Adicionar chave SSH**.
+3. Defina o nome como `site-key`.
+4. Cole o conteúdo da sua chave pública (copie do seu terminal com `cat ~/.ssh/id_ed25519.pub`).
+5. Clique em **Salvar**.
+
+#### Passo 2 — Gerar Chaves de Acesso do Object Storage (S3 Key Pair)
+1. No menu lateral, acesse **Object Storage** → **Chaves de Acesso** / **API Keys**.
+2. Clique em **Criar chave de acesso** (selecione escopo de Leitura e Escrita).
+3. **Guarde com segurança o `Access Key ID` e a `Secret Access Key`** gerados (a Secret só é exibida uma vez).
+
+#### Passo 3 — Criar a Máquina Virtual (VM)
+1. No menu lateral, acesse **Máquinas Virtuais** → **Criar máquina**.
+2. Preencha os campos:
+   - **Nome:** `site-web-01`
+   - **Região:** `Sudeste (br-se1)`
+   - **Zona de Disponibilidade:** `br-se1-a`
+   - **Imagem/SO:** `Ubuntu 24.04 LTS` (ou `cloud-ubuntu-24.04 LTS`)
+   - **Tipo de Máquina (Flavor):** `BV1-1-10` (1 vCPU / 1 GB RAM / 10 GB Disco) ou `BV2-2-8`
+   - **VPC / Rede:** Selecione a VPC padrão (`default`)
+   - **IP Público:** Marque a opção para **Alocar IP Público IPv4**
+   - **Chave SSH:** Selecione a chave cadastrada (`site-key`)
+3. Clique em **Criar Máquina Virtual**.
+4. Aguarde o status mudar para **Ativa/Executando** e **copie o IP Público** exibido.
+
+#### Passo 4 — Criar o Bucket no Object Storage
+1. No menu lateral, acesse **Object Storage** → **Buckets**.
+2. Clique em **Criar bucket**.
+3. Preencha:
+   - **Nome:** `site-media-<seu-nome-exclusivo>` *(o nome deve ser único globalmente)*
+   - **Região:** `br-se1` (mesma região da VM)
+   - **Visibilidade:** Marque **Público para leitura** (ou adicione a política de leitura pública).
+4. Clique em **Criar**.
+
+#### Passo 5 — Deploy do WordPress via SSH na VM
+Conecte-se na VM e suba os containers Docker:
+
 ```bash
-# cria a VM com IP público
+# 1. Conecte via SSH
+ssh -i ~/.ssh/id_ed25519 ubuntu@<IP_PUBLICO>
+
+# 2. Instale o Docker e Docker Compose Plugin
+sudo apt update && sudo apt install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo systemctl enable --now docker
+
+# 3. Crie a pasta da aplicação e o docker-compose.yml
+mkdir -p ~/wordpress && cd ~/wordpress
+
+cat > docker-compose.yml <<'EOF'
+services:
+  wordpress:
+    image: wordpress:latest
+    restart: always
+    ports:
+      - "80:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress_secret_pass
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wordpress_data:/var/www/html
+
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress_secret_pass
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  wordpress_data:
+  db_data:
+EOF
+
+# 4. Inicie os containers
+sudo docker compose up -d
+sudo docker compose ps
+```
+
+---
+
+### 3.2 Procedimento 2: Via MGC CLI
+
+> 📖 **Documentações de apoio:**
+> - [Instalação e Configuração da CLI](https://docs.magalu.cloud/docs/cli/installation-and-configuration/get-started)
+> - [Autenticação e API Keys no CLI](https://docs.magalu.cloud/docs/cli/)
+> - [Compatibilidade e Configuração de Object Storage no CLI](https://docs.magalu.cloud/docs/storage/object-storage/compatible-tools/mgc-cli-compatibility)
+> - [Gerenciamento de Instâncias e Chaves SSH via CLI](https://docs.magalu.cloud/docs/cli/virtual-machine/instances)
+
+#### Passo 1 — Login e Configuração de Credenciais na CLI
+```bash
+# 1. Autenticar no ID Magalu (abre o navegador)
+mgc auth login
+
+# 2. Confirmar o tenant ativo
+mgc auth tenant current
+
+# 3. Criar e ativar uma API Key com permissão para Object Storage
+mgc object-storage api-key create workshop-key
+# Copie o UUID retornado pelo comando acima e configure como ativo:
+mgc object-storage api-key set <UUID_DA_API_KEY>
+mgc object-storage api-key current
+```
+
+#### Passo 2 — Registrar a Chave SSH
+```bash
+# Registra a chave pública no perfil da MGC
+mgc profile ssh-keys create \
+  --name site-key \
+  --key "$(cat ~/.ssh/id_ed25519.pub)" \
+  --output json --raw
+```
+
+#### Passo 3 — Criar a Máquina Virtual (VM)
+```bash
+# Provisiona a VM com IP público na região br-se1
 mgc virtual-machine instances create \
   --name site-web-01 \
   --machine-type.name BV1-1-10 \
@@ -203,298 +271,199 @@ mgc virtual-machine instances create \
   --output json --raw
 ```
 
+Para consultar o IP público alocado:
 ```bash
-# verifique a máquina criada
-mgc virtual-machine instances get <ID>
+mgc virtual-machine instances list
 ```
-> Anote o IP público retornado no campo `associated_public_ipv4`.
+*(Anote o IP exibido na coluna `Public IP` / `associated_public_ipv4`).*
 
-#### 3.2.3 Criar o bucket
-
+#### Passo 4 — Criar o Bucket no Object Storage com Leitura Pública
 ```bash
-# cria o bucket (S3-compatible) na região
+# Cria o bucket público na região br-se1
 mgc object-storage buckets create site-media-<seu-nome> \
   --public-read \
   --region br-se1 \
   --output json --raw
 
-# torna a leitura pública (para servir as mídias do site)
+# Aplica a política de leitura pública para o endpoint S3
 mgc object-storage buckets policy set \
   --dst site-media-<seu-nome> \
   --policy '{
-    "Version":"2012-10-17",
-    "Statement":[{
-      "Effect":"Allow",
-      "Principal":"*",
-      "Action":"s3:GetObject",
-      "Resource":"site-media-<seu-nome>/*"
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Principal": "*",
+      "Action": "s3:GetObject",
+      "Resource": "site-media-<seu-nome>/*"
     }]
   }'
 ```
 
-> **Nota:** não é preciso fazer upload manual das mídias. Elas serão enviadas
-> pelo **WordPress** (via plugin Media Cloud Sync) quando você adicionar
-> imagens na biblioteca de mídia — a VM precisa apenas das credenciais do
-> bucket (ver [seção 4](#4-deploy-do-site)).
-
-### 3.3 Pelo IaC (Terraform + Ansible)
-
-Esta é a forma **automatizada**: o **Terraform** (provider oficial
-`MagaluCloud/mgc`) cria toda a infraestrutura (chave SSH, security group, VM com
-IP público e bucket) e, logo em seguida, o **provisioner local chama o Ansible**,
-que instala o Docker e faz o deploy do WordPress + MySQL na VM.
-
-```
-Terraform ──cria a infra──▶ MGC (VM, SG, bucket)
-    │
-    └── provisioner local-exec ──▶ Ansible ──▶ deploy WordPress (Docker) na VM
-```
-
-**Passo a passo:**
-
-```bash
-# 1. Entre na pasta do Terraform
-cd terraform
-
-# 2. Preencha as variáveis
-cp terraform.tfvars.example terraform.tfvars
-# edite o terraform.tfvars: API Key, chaves SSH, nome do bucket e credenciais
-# do Object Storage (access/secret key)
-
-# 3. Inicialize e planeje
-terraform init
-terraform plan
-
-# 4. Aplique (cria a infra + roda o Ansible automaticamente)
-terraform apply
-```
-
-Ao final, o `terraform apply` já terá:
-- criado a **VM** com IP público e o **bucket** de mídias (público para leitura);
-- gerado o inventário do Ansible (`ansible/inventory/hosts.ini`) com o IP da VM;
-- rodado o **Ansible**, que instala o Docker e sobe o **WordPress + MySQL** via
-  `docker compose`.
-
-Veja os **outputs** do Terraform (IP público e URL do site). Depois, siga a
-seção [4](#4-deploy-do-site) apenas para **finalizar o WordPress no navegador**
-e conectar o plugin Media Cloud Sync (o restante já foi feito pelo Ansible).
-
-Para **desmontar** tudo:
-
-```bash
-terraform destroy
-```
-
-> Toda a lógica do deploy está em `ansible/roles/wordpress/` — veja os detalhes
-> na [README do Terraform](terraform/README.md).
-
----
-
-## 4. Deploy do WordPress (Docker)
-
-Com a VM no ar e o bucket criado, vamos subir o **WordPress + MySQL em Docker**
-e conectar as mídias ao Object Storage.
-
-### 4.1 Conectar na VM
-
+#### Passo 5 — Deploy do WordPress na VM
+Conecte-se na VM via SSH e realize a inicialização do Docker Compose (mesmo script de inicialização do Passo 5 da Seção 3.1):
 ```bash
 ssh -i ~/.ssh/id_ed25519 ubuntu@<IP_PUBLICO>
 ```
 
-> Não tem SSH? O próprio console da Magalu Cloud oferece a **conexão web**
-> direto na máquina — não depende da sua máquina local.
+---
 
-### 4.2 Instalar o Docker
+### 3.3 Procedimento 3: Via Terraform + Ansible (Automatizado)
 
+> 📖 **Documentações de apoio:**
+> - [Guia de Terraform na Magalu Cloud](https://docs.magalu.cloud/docs/infrastructure-as-code/terraform)
+> - [Documentação do Provider Oficial MagaluCloud/mgc](https://registry.terraform.io/providers/MagaluCloud/mgc/latest/docs)
+> - [Backend S3 e Integração Object Storage](https://docs.magalu.cloud/docs/storage/object-storage/quickstart)
+
+Este método provisiona 100% da infraestrutura com **Terraform** e executa a configuração e deploy do WordPress automaticamente via **Ansible Playbook**.
+
+#### Passo 1 — Configurar o arquivo de variáveis do Terraform
+1. Entre no diretório do Terraform:
+   ```bash
+   cd terraform
+   ```
+2. Crie seu arquivo de variáveis a partir do exemplo:
+   ```bash
+   cp terraform.tfvars.example terraform.tfvars
+   ```
+3. Edite o `terraform.tfvars` preenchendo com suas credenciais:
+   ```hcl
+   mgc_api_key            = "SUA_API_KEY_DA_MAGALU_CLOUD"
+   region                 = "br-se1"
+   availability_zone      = "br-se1-a"
+
+   vm_name                = "site-web-01"
+   machine_type           = "BV1-1-10"
+   image                  = "cloud-ubuntu-24.04 LTS"
+
+   ssh_key_name           = "site-key"
+   ssh_public_key         = "ssh-ed25519 AAAAC3... (conteúdo de ~/.ssh/id_ed25519.pub)"
+   ssh_private_key_path   = "~/.ssh/id_ed25519"
+
+   bucket_name            = "site-media-<seu-nome-exclusivo>"
+
+   object_storage_access_key  = "SEU_ACCESS_KEY_DO_OBJECT_STORAGE"
+   object_storage_secret_key  = "SUA_SECRET_KEY_DO_OBJECT_STORAGE"
+   object_storage_endpoint    = "https://br-se1.magaluobjects.com"
+   ```
+
+#### Passo 2 — Inicializar e Aplicar o Terraform
 ```bash
-sudo apt update
-sudo apt install -y ca-certificates curl
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-  -o /etc/apt/keyrings/docker.asc
-sudo chmod a+r /etc/apt/keyrings/docker.asc
+# Inicializa os providers (MGC, AWS S3 e Null)
+terraform init
 
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-  https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
-  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# Visualiza o plano de execução
+terraform plan
 
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+# Aplica a infraestrutura e roda o deploy Ansible automaticamente
+terraform apply
 ```
 
-Confirme a instalação:
+O Terraform realizará automaticamente:
+1. Registro da chave SSH (`mgc_ssh_keys`).
+2. Provisionamento da Máquina Virtual com IP público (`mgc_virtual_machine_instances`).
+3. Criação do bucket de mídias (`mgc_object_storage_buckets`).
+4. Configuração da ACL de leitura pública S3 (`aws_s3_bucket_acl`).
+5. Execução do Ansible que aguarda a VM inicializar, instala o Docker e sobe o WordPress + MySQL via Docker Compose.
 
-```bash
-sudo docker --version
-sudo docker compose version
+Ao final, o terminal exibirá os **Outputs**:
+```text
+Outputs:
+bucket_name = "site-media-seu-nome"
+public_ip   = "201.23.xx.xx"
+ssh_command = "ssh -i ~/.ssh/id_ed25519 ubuntu@201.23.xx.xx"
+wp_url      = "http://201.23.xx.xx"
 ```
-
-### 4.3 Subir WordPress + MySQL com Docker Compose
-
-Crie o arquivo `docker-compose.yml` (baseado na **imagem oficial do WordPress**):
-
-```bash
-mkdir -p ~/wordpress && cd ~/wordpress
-```
-
-```yaml
-# ~/wordpress/docker-compose.yml
-services:
-
-  wordpress:
-    image: wordpress:latest
-    restart: always
-    ports:
-      - "80:80"
-    environment:
-      WORDPRESS_DB_HOST: db
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
-    volumes:
-      - wordpress:/var/www/html
-
-  db:
-    image: mysql:8.0
-    restart: always
-    environment:
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: wordpress
-      MYSQL_RANDOM_ROOT_PASSWORD: '1'
-    volumes:
-      - db:/var/lib/mysql
-
-volumes:
-  wordpress:
-  db:
-```
-
-Suba os containers:
-
-```bash
-sudo docker compose up -d
-sudo docker compose ps
-```
-
-> O primeiro `up -d` baixa as imagens e pode levar alguns minutos. Acompanhe o
-> log com `sudo docker compose logs -f` até o WordPress responder.
-
-> ⚠️ **Uso pedagógico:** aqui as senhas do banco são simples e fixas para o
-> workshop. Em produção, use senhas fortes/aleatórias (a imagem oficial suporta
-> `_FILE` para ler de Docker secrets) e dados persistentes.
-
-### 4.4 Configurar as mídias no Object Storage
-
-As mídias enviadas pelo WordPress (imagens, vídeos, documentos) vão para o
-bucket via plugin. O plugin oficial usado é o
-[**Media Cloud Sync**](https://wordpress.org/plugins/media-cloud-sync/)
-(compatível com S3 — e o Object Storage da MGC fala S3).
-
-**No navegador, finalize a instalação do WordPress** (em `http://<IP_PUBLICO>`):
-1. Escolha o idioma e preencha os dados do site (título, usuário admin, senha e
-   e-mail).
-2. Faça login no painel (`/wp-admin`).
-
-**Instale e configure o plugin:**
-
-1. No painel, vá em **Plugins → Adicionar novo**.
-2. Busque por **"Media Cloud Sync"** e **Instalar agora → Ativar**.
-3. No menu **Settings → Configure**, configure o **Configure Cloud Service**
-   com o **S3 Compatible** (o Object Storage da MGC é S3-compatible) e preencha:
-   - **Provider label** — `Magalu Cloud`
-   - **Storage Endpoint** — `https://br-se1.magaluobjects.com/`
-   - **Access Key / Secret Key** — credenciais do Object Storage
-     (obtidas no console do ID Magalu).
-   - **Region** — `br-se1`.
-   - **Bucket** — `site-media-<seu-nome>`.
-   - **Save**
-
-   - **Choose your Media Delivery Provider** - `Other`
-   - **Provider Name** - `Magalu Cloud`
-   - **Save**
-
-4. Salve. O plugin testa a conexão com o bucket.
-
-**Teste:** envie uma imagem pela biblioteca de mídia (**Mídia → Adicionar
-nova**). Ela é copiada para o bucket e servida de lá — confira a URL da imagem
-no site e no bucket no console do Object Storage.
-
-> A essência da arquitetura: o **código, tema e plugins do WordPress ficam na
-> VM**; o **banco fica no MySQL da VM**; mas as **mídias moram no Object
-> Storage**. Assim a máquina não precisa crescer com o armazenamento e você
-> pode escalar/cachear mídias com CDN no futuro.
 
 ---
 
-## 5. Verificação
+## 4. Configuração do WordPress e Mídias no Object Storage
 
-Abra no navegador:
+Após subir a infraestrutura por qualquer um dos 3 procedimentos:
 
-```
-http://<IP_PUBLICO>
-```
+### 4.1 Instalação do WordPress
+1. Abra no seu navegador: `http://<IP_PUBLICO>`.
+2. Selecione o idioma (Português do Brasil).
+3. Preencha os dados do site (Título, Usuário Administrador, Senha e E-mail).
+4. Clique em **Instalar WordPress** e faça login no painel `/wp-admin`.
 
-Você deve ver o **WordPress instalado e no ar**, e, após o login no `/wp-admin`,
-conseguir adicionar mídias que aparecem no site.
+### 4.2 Instalar e Configurar o Plugin Media Cloud Sync
+O plugin **Media Cloud Sync** conecta a biblioteca de mídia do WordPress diretamente ao Object Storage compatível com S3 da Magalu Cloud:
 
-**Checklist:**
-- [ ] Página inicial do WordPress responde (`http://<IP_PUBLICO>`)
-- [ ] Login em `http://<IP_PUBLICO>/wp-admin` funciona
-- [ ] Uma imagem enviada pela biblioteca de mídia aparece no site
-- [ ] A imagem enviada também aparece no bucket `site-media-<seu-nome>` no
-      console do Object Storage
-
-> **Teste extra (opcional):** exclua a imagem local na máquina (o plugin tem a
-> opção "Remove files from server") e verifique que a mídia continua acessível
-> **direto do Object Storage** — a VM não precisa guardar as imagens.
+1. No painel do WordPress, vá em **Plugins** → **Adicionar Novo**.
+2. Busque por **Media Cloud Sync** e clique em **Instalar Agora** → **Ativar**.
+3. Acesse o menu lateral **Media Cloud** (ou **Settings** → **Cloud Storage**).
+4. Em **Storage Provider**, selecione **S3 Compatible**.
+5. Preencha as credenciais:
+   - **Provider Name / Label:** `Magalu Cloud`
+   - **Storage Endpoint:** `https://br-se1.magaluobjects.com/`
+   - **Access Key:** Sua Access Key do Object Storage
+   - **Secret Key:** Sua Secret Key do Object Storage
+   - **Region:** `br-se1`
+   - **Bucket:** `site-media-<seu-nome>`
+6. Em **Media Delivery Provider**, selecione **Other** / `Magalu Cloud`.
+7. Clique em **Save Changes** e execute o teste de conexão.
 
 ---
 
-## 6. Desmontagem do ambiente
+## 5. Validação do Ambiente
 
-Importante para **não gerar custo** depois do workshop (pay-as-you-go).
+Faça o teste de ponta a ponta da integração entre a VM e o Object Storage:
 
-### Pelo console
+1. No painel do WordPress, vá em **Mídia** → **Adicionar Nova**.
+2. Faça upload de uma imagem qualquer (ex: `.png` ou `.jpg`).
+3. Clique sobre a imagem carregada e copie o link do arquivo (**URL do arquivo**).
+4. **Verifique a URL:** A imagem estará apontando diretamente para `https://br-se1.magaluobjects.com/site-media-<seu-nome>/wp-content/uploads/...`.
+5. Abra uma aba anônima no navegador e cole a URL da imagem: ela será carregada publicamente direto do Object Storage da Magalu Cloud sem onerar o disco da VM.
 
-1. **Apagar a VM:** menu **Máquinas Virtuais** → selecionar `site-web-01` →
-   **Apagar/Excluir** → confirmar. (Isso também remove os containers e o volume
-   do banco — os dados do workshop se perdem, como esperado.)
-2. **Apagar o bucket:** menu **Object Storage** → selecionar o bucket →
-   **esvaziar** (excluir os objetos de mídia) → **Apagar/Excluir** → confirmar.
+---
 
-> O **IP público** é apagado junto com a VM — não é preciso apagar à parte.
+## 6. Desmontagem e Exclusão dos Recursos
 
-### Pela CLI
+> ⚠️ **Importante:** Para garantir que não haja cobranças residuais após o término do workshop, execute a exclusão completa dos recursos criados.
 
+### 6.1 Desmontagem Via Console Web
+1. **Excluir a VM:** Acesse **Máquinas Virtuais** → Selecione `site-web-01` → Clique em **Excluir** (o IP público associado será liberado).
+2. **Esvaziar e Excluir o Bucket:** Acesse **Object Storage** → Selecione seu bucket → Clique em **Esvaziar objetos** → Depois clique em **Excluir bucket**.
+3. **Remover Chave SSH:** Acesse **Segurança / Chaves SSH** → Exclua a chave `site-key`.
+
+### 6.2 Desmontagem Via MGC CLI
 ```bash
-# apaga a VM (e o IP público junto) — remove containers, WordPress e o banco
-mgc virtual-machine instances delete --id <VM_ID> --delete-public-ip=true --output json --raw
+# 1. Obter o ID da VM
+VM_ID=$(mgc virtual-machine instances list --output json | grep -o '"id": "[^"]*' | head -1 | cut -d'"' -f4)
 
-# apaga o bucket e esvazia os objetos de mídia
-mgc object-storage buckets delete \
-  --bucket site-media-<seu-nome> \
-  --recursive
+# 2. Excluir a VM e liberar o IP público
+mgc virtual-machine instances delete --id $VM_ID --delete-public-ip=true
+
+# 3. Excluir o bucket e todos os arquivos armazenados
+mgc object-storage buckets delete --dst site-media-<seu-nome> --recursive
+
+# 4. Remover a chave SSH do perfil
+mgc profile ssh-keys delete --name site-key
 ```
 
-Confira no console que os dois recursos sumiram. Ambiente desmontado, sem custo
-remanescente.
+### 6.3 Desmontagem Via Terraform
+Se você utilizou o Terraform:
+```bash
+cd terraform
+terraform destroy
+```
+*(Digite `yes` para confirmar. O Terraform removerá a VM, a chave SSH, a ACL e o bucket automaticamente).*
 
 ---
 
-## Referências
+## 7. Documentação e Referências Oficiais
 
-- [Documentação da Magalu Cloud](https://docs.magalu.cloud/)
-- [Console da Magalu Cloud](https://console.magalu.cloud)
-- [Imagem oficial do WordPress no Docker Hub](https://hub.docker.com/_/wordpress)
-- [Plugin Media Cloud Sync](https://wordpress.org/plugins/media-cloud-sync/)
-- [Terraform Provider MagaluCloud/mgc](https://registry.terraform.io/providers/MagaluCloud/mgc/latest/docs)
-- [Documentação do Ansible](https://docs.ansible.com/)
-- [Roteiro do workshop (falas do facilitador)](roteiro-workshop.md)
+- 🌐 [Portal Oficial da Magalu Cloud](https://magalu.cloud/)
+- 📖 [Documentação Central da Magalu Cloud](https://docs.magalu.cloud/)
+- 🚀 [Guia de Criação de Conta e Onboarding](https://docs.magalu.cloud/docs/onboarding/create-account)
+- 💻 [Guia de Instalação e Comandos da MGC CLI](https://docs.magalu.cloud/docs/cli/installation-and-configuration/get-started)
+- 🖥️ [Documentação de Máquinas Virtuais (Compute)](https://docs.magalu.cloud/docs/virtual-machine/quickstart)
+- 🪣 [Documentação de Object Storage (S3-Compatible)](https://docs.magalu.cloud/docs/storage/object-storage/quickstart)
+- 🏗️ [Terraform Provider MagaluCloud/mgc](https://registry.terraform.io/providers/MagaluCloud/mgc/latest/docs)
+- 🐳 [Imagem Oficial do WordPress (Docker Hub)](https://hub.docker.com/_/wordpress)
+- 🔌 [Plugin WordPress Media Cloud Sync](https://wordpress.org/plugins/media-cloud-sync/)
+- 📜 [Roteiro Pedagógico do Facilitador](roteiro-workshop.md)
 
 ---
 
-*Workshop Magalu Cloud na Prática — rode, verifique e desmonte. Sem custo, sem
-surpresa.*
+*Workshop Magalu Cloud na Prática — Desenvolva, valide e automatize sua infraestrutura com autonomia.*

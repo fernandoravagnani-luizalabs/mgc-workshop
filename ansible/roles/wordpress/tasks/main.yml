@@ -8,6 +8,10 @@
       - gnupg
     state: present
     update_cache: true
+  register: apt_base
+  until: apt_base is success
+  retries: 10
+  delay: 5
 
 - name: Criar diretório de keyrings do Docker
   ansible.builtin.file:
@@ -44,6 +48,10 @@
       - docker-compose-plugin
     state: present
     update_cache: true
+  register: apt_docker
+  until: apt_docker is success
+  retries: 10
+  delay: 5
 
 - name: Garantir que o serviço Docker esteja ativo
   ansible.builtin.systemd:
