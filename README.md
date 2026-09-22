@@ -34,22 +34,22 @@ Navegador do Participante / Visitantes
 
 ```
 mgc-workshop/
-├── README.md                 # Este guia completo passo a passo
-├── roteiro-workshop.md       # Roteiro didático do facilitador com falas e tempos
-├── scripts/                  # Scripts utilitários de instalação de pré-requisitos
-│   ├── install-prereqs.sh    # Instalação automatizada no Linux/macOS
-│   └── install-prereqs.ps1   # Instalação automatizada no Windows (PowerShell)
-├── terraform/                # Infraestrutura como Código (IaC) via Terraform
-│   ├── main.tf               # Definição de VM, Chave SSH, Bucket, ACL e Ansible
-│   ├── variables.tf          # Definição das variáveis
-│   ├── outputs.tf            # IPs e URLs de saída
-│   └── terraform.tfvars.example
-├── ansible/                  # Automação de deploy e configuração da VM
-│   ├── playbook.yml          # Playbook de instalação do Docker e WordPress
-│   ├── ansible.cfg           # Configurações do Ansible
-│   ├── inventory/hosts.ini   # Inventário gerado automaticamente
-│   └── roles/wordpress/      # Role com tarefas e templates do Docker Compose
-└── docker/                   # Compose de referência pedagógica
+├── README.md                    # Este guia completo passo a passo
+├── workshop-magalu-mloud.pptx   # Roteiro didático do facilitador com falas e tempos
+├── scripts/                     # Scripts utilitários de instalação de pré-requisitos
+│   ├── install-prereqs.sh       # Instalação automatizada no Linux/macOS
+│   └── install-prereqs.ps1      # Instalação automatizada no Windows (PowerShell)
+├── terraform/                   # Infraestrutura como Código (IaC) via Terraform
+│   ├── main.tf                  # Definição de VM, Chave SSH, Bucket, ACL e Ansible
+│   ├── variables.tf             # Definição das variáveis
+│   ├── outputs.tf               # IPs e URLs de saída
+│   └── terraform.tfvars.example # Template do arquivo de variáveis do Terraform
+├── ansible/                     # Automação de deploy e configuração da VM
+│   ├── playbook.yml             # Playbook de instalação do Docker e WordPress
+│   ├── ansible.cfg              # Configurações do Ansible
+│   ├── inventory/hosts.ini      # Inventário gerado automaticamente
+│   └── roles/wordpress/         # Role com tarefas e templates do Docker Compose
+└── docker/                      # Compose de referência pedagógica
 ```
 
 ---
@@ -95,10 +95,10 @@ Para acessar a Máquina Virtual de forma segura via terminal, gere uma chave SSH
 
 ```bash
 # Gera um par de chaves ED25519 (recomendado) ou RSA
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "workshop-mgc"
+ssh-keygen -t ed25519 -f ~/.ssh/sshkey-workshop-mgc -N "" -C "workshop-mgc"
 
 # Garanta as permissões restritas corretas no arquivo privado
-chmod 600 ~/.ssh/id_ed25519
+chmod 600 ~/.ssh/sshkey-workshop-mgc
 ```
 
 ### 2.2 Script Automático de Instalação de Ferramentas (CLI / Terraform)
