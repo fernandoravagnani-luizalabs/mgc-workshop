@@ -35,7 +35,7 @@ Navegador do Participante / Visitantes
 ```
 mgc-workshop/
 ├── README.md                    # Este guia completo passo a passo
-├── workshop-magalu-mloud.pptx   # Roteiro didático do facilitador com falas e tempos
+├── workshop-magalu-cloud.pptx   # Apresentação do Workshop
 ├── scripts/                     # Scripts utilitários de instalação de pré-requisitos
 │   ├── install-prereqs.sh       # Instalação automatizada no Linux/macOS
 │   └── install-prereqs.ps1      # Instalação automatizada no Windows (PowerShell)
@@ -462,7 +462,7 @@ terraform destroy
 - 🏗️ [Terraform Provider MagaluCloud/mgc](https://registry.terraform.io/providers/MagaluCloud/mgc/latest/docs)
 - 🐳 [Imagem Oficial do WordPress (Docker Hub)](https://hub.docker.com/_/wordpress)
 - 🔌 [Plugin WordPress Media Cloud Sync](https://wordpress.org/plugins/media-cloud-sync/)
-- 📜 [Roteiro Pedagógico do Facilitador](roteiro-workshop.md)
+- 📜 [Apresentação do Workshop](workshop-magalu-cloud.pptx)
 
 ---
 
